@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 0;
+            box-shadow: none;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+        }
+        p {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+        #status {
+            font-weight: bold;
+        }
+        .top-tables-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .table-wrapper {
+            width: 48%;
+        }
+
+        /* Freeze the table header row */
+        #table-header th {
+            position: sticky;
+            top: 0;
+            background-color: #007bff; /* Background color for the header */
+            z-index: 2;  /* Ensure the header stays on top while scrolling */
+            border-bottom: 2px solid #ccc; /* Add a border to separate header */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>WebSocket Client</h1>
+        <p>Status: <span id="status">Disconnected</span></p>
+
+        <!-- Two side-by-side tables -->
+        <div class="top-tables-container">
+
+            <!-- Table 1 (Expiry Table & Expiry submit button) -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <form id="expiry-form" method="post" onsubmit="return sendExpiry();">
+                            <label>
+                                <input type="radio" name="expiry" value="near" checked> Near
+                            </label>
+                            <label>
+                                <input type="radio" name="expiry" value="mid"> Mid
+                            </label>
+                            <label>
+                                <input type="radio" name="expiry" value="far"> Far
+                            </label>
+
+                            <!-- Add input for Open Factor -->
+                            <br>
+                            <label for="open-factor">Open Factor:</label>
+                            <input type="number" id="open-factor" name="open-factor" step="0.01" required>
+
+                            <button type="submit">Submit Expiry</button>
+                        </form>
+
+                        <tr>
+                            <th colspan="4">Dates & Days Left To Expiry</th>
+                        </tr>
+                        <tr>
+                            <th>Today</th>
+                            <th>Near</th>
+                            <th>Mid</th>
+                            <th>Far</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2024-10-11</td>
+                            <td>2024-10-31</td>
+                            <td>2024-11-28</td>
+                            <td>2024-12-26</td>
+                        </tr>
+                        <tr>
+                            <td>0</td>
+                            <td>20</td>
+                            <td>48</td>
+                            <td>76</td>
+                        </tr>   
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Table 2 (Expenses Table) -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="6">Expense</th>
+                        </tr>
+                        <tr>
+                            <th>Future Buy</th>
+                            <th>Future Sell</th>
+                            <th>Cash Buy</th>
+                            <th>Cash Sell</th>
+                            <th>Cash Dlv Buy</th>
+                            <th>Cash Dlv Sell</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="future-buy">550</td>
+                            <td id="future-sell">2600</td>
+                            <td id="cash-buy">800</td>
+                            <td id="cash-sell">4000</td>
+                            <td id="cash-dlv-buy">12000</td>
+                            <td id="cash-dlv-sell">11500</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Main Data Table -->
+        <div id="data">
+            <h2>Received Data:</h2>
+            <!-- Toggle Button to Show/Hide Bid and Ask Columns -->
+            <button id="toggleColumnsBtn" onclick="toggleBidAskColumns()">Show Bid and Ask</button>
+            <input type="text" id="searchInput" placeholder="Search by SYMBOL..." onkeyup="filterTable()" style="float: right; margin-bottom: 10px; padding: 5px;">
+            <table id="data-table">
+                <thead>
+                    <tr id="table-header">
+                        <!-- Headers will be dynamically added -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data rows will be dynamically added -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const statusElement = document.getElementById('status');
+        const tableHeader = document.getElementById('table-header');
+        const tableBody = document.querySelector('#data-table tbody');
+        const toggleButton = document.getElementById('toggleColumnsBtn');
+        let columnsVisible = false;
+        let sortOrder = {};  // Track sorting order for each column
+        let currentSortColumn = '';  // To track which column is being sorted
+
+        const wsUrl = 'ws://localhost:8765';
+        let socket = new WebSocket(wsUrl);
+
+
+        function connect() {
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function(event) {
+                statusElement.textContent = 'Connected';
+                statusElement.className = 'success';
+            };
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // Clear the existing table content
+                    tableHeader.innerHTML = '';
+                    tableBody.innerHTML = '';
+
+                    if (data.length > 0) {
+                        // Add table headers
+                        const headers = Object.keys(data[0]);
+                        headers.forEach(header => {
+                            const th = document.createElement('th');
+                            th.textContent = header;
+                            th.className = header.includes('BID') || header.includes('ASK') ? 'bid-ask' : '';
+
+                            // Add event listener for sorting if it's one of the sortable columns
+                            if (header === 'DLV_OPEN' || header === 'RLT_RETURN_OPEN') {
+                                th.addEventListener('click', () => sortTableByColumn(header, data));
+                                th.style.cursor = 'pointer';  // Indicate the column is clickable
+                            }
+
+                            tableHeader.appendChild(th);
+                        });
+
+                        // Initially display the table without sorting
+                        // displayTableData(data);
+
+                        // Sort the data if there's a column that was previously sorted
+                        if (currentSortColumn) {
+                            sortTableByColumn(currentSortColumn, data, true);  // Pass true to indicate this is a new data sort
+                        } else {
+                            // Initially display the table without sorting
+                            displayTableData(data);
+                        }
+
+                        // Reapply user's preference for column visibility
+                        toggleBidAskColumns(true);  // Pass true to just reapply without toggling
+
+                        // Add table rows
+                        data.forEach(item => {
+                            const row = document.createElement('tr');
+                            headers.forEach(header => {
+                                const td = document.createElement('td');
+                                td.textContent = item[header] !== undefined ? item[header] : 'N/A';
+                                td.className = header.includes('BID') || header.includes('ASK') ? 'bid-ask' : '';
+                                row.appendChild(td);
+                            });
+                            tableBody.appendChild(row);
+                        });
+
+                        // Reapply user's preference for column visibility
+                        toggleBidAskColumns(true);  // Pass true to just reapply without toggling
+                    } else {
+                        const row = document.createElement('tr');
+                        const cell = document.createElement('td');
+                        cell.colSpan = tableHeader.children[0]?.children.length || 1;
+                        cell.textContent = 'No data received yet';
+                        row.appendChild(cell);
+                        tableBody.appendChild(row);
+                    }
+                } catch (error) {
+                    console.error('Error parsing JSON:', error);
+                }
+            };
+
+            socket.onclose = function(event) {
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'error';
+                setTimeout(connect, 1000);
+            };
+
+            socket.onerror = function(error) {
+                statusElement.textContent = 'Error';
+                statusElement.className = 'error';
+            };
+        }
+
+
+        // function sortTableByColumn(columnName, data) {
+        //     // Toggle the sort order for this column (ascending -> descending and vice-versa)
+        //     const order = sortOrder[columnName] === 'asc' ? 'desc' : 'asc';
+        //     sortOrder[columnName] = order;
+
+        //     // Sort the data based on the column values
+        //     data.sort((a, b) => {
+        //         const valueA = parseFloat(a[columnName]);
+        //         const valueB = parseFloat(b[columnName]);
+
+        //         if (order === 'asc') {
+        //             return valueA - valueB;
+        //         } else {
+        //             return valueB - valueA;
+        //         }
+        //     });
+
+        //     // Re-display the sorted data
+        //     displayTableData(data);
+        // }
+
+        function sortTableByColumn(columnName, data, preserveOrder = false) {
+            // Toggle the sort order for this column (ascending -> descending and vice-versa)
+            if (!preserveOrder) {
+                const order = sortOrder[columnName] === 'asc' ? 'desc' : 'asc';
+                sortOrder[columnName] = order;
+            }
+
+            const order = sortOrder[columnName];
+
+            // Sort the data based on the column values
+            data.sort((a, b) => {
+                const valueA = parseFloat(a[columnName]);
+                const valueB = parseFloat(b[columnName]);
+
+                if (order === 'asc') {
+                    return valueA - valueB;
+                } else {
+                    return valueB - valueA;
+                }
+            });
+
+    currentSortColumn = columnName;  // Store the current sorted column
+
+    // Re-display the sorted data
+    displayTableData(data);
+}
+
+
+        // function displayTableData(data) {
+        //     tableBody.innerHTML = '';  // Clear the body before displaying
+
+        //     data.forEach(item => {
+        //         const row = document.createElement('tr');
+        //         Object.keys(item).forEach(header => {
+        //             // Only add visible columns
+        //             const shouldDisplay = columnsVisible || (!header.includes('BID') && !header.includes('ASK'));
+                    
+        //             if (shouldDisplay) {
+        //                 const td = document.createElement('td');
+        //                 td.textContent = item[header] !== undefined ? item[header] : 'N/A';
+        //                 td.className = header.includes('BID') || header.includes('ASK') ? 'bid-ask' : '';
+        //                 row.appendChild(td);
+        //             }
+        //         });
+        //         tableBody.appendChild(row);
+        //     });
+        // }
+
+
+        function displayTableData(data) {
+            tableBody.innerHTML = '';  // Clear the body before displaying
+
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                Object.keys(item).forEach(header => {
+                    // Only add visible columns
+                    const shouldDisplay = columnsVisible || (!header.includes('BID') && !header.includes('ASK'));
+                    
+                    if (shouldDisplay) {
+                        const td = document.createElement('td');
+                        td.textContent = item[header] !== undefined ? item[header] : 'N/A';
+                        td.className = header.includes('BID') || header.includes('ASK') ? 'bid-ask' : '';
+                        row.appendChild(td);
+                    }
+                });
+                tableBody.appendChild(row);
+            });
+        }
+
+
+        function toggleBidAskColumns(init = false) {
+            const bidAskElements = document.querySelectorAll('.bid-ask');
+            
+            if (!init) {
+                columnsVisible = !columnsVisible; // Toggle the visibility only when not initializing
+            }
+
+            bidAskElements.forEach(element => {
+                element.style.display = columnsVisible ? 'table-cell' : 'none';
+            });
+
+            toggleButton.textContent = columnsVisible ? 'Hide Bid and Ask' : 'Show Bid and Ask';
+        }
+
+
+        // Function to filter table rows based on search input
+        function filterTable() {
+            const input = document.getElementById("searchInput").value.toUpperCase();  // Get search input in uppercase
+            const table = document.getElementById("data-table");
+            const tr = table.getElementsByTagName("tr");
+
+            // Loop through all table rows and hide those that don't match the search query
+            for (let i = 1; i < tr.length; i++) {  // Start at 1 to skip the header row
+                const td = tr[i].getElementsByTagName("td")[1];  // Assuming SYMBOL is in the first column
+                if (td) {
+                    const symbol = td.textContent || td.innerText;
+                    tr[i].style.display = symbol.toUpperCase().indexOf(input) > -1 ? "" : "none";
+                }
+            }
+        }
+
+        // function sendExpiry() {
+        //     const form = document.getElementById('expiry-form');
+        //     const selectedExpiry = form.elements['expiry'].value;
+        //     // Send the selected expiry to the WebSocket server
+        //     socket.send("SET_EXPIRY:" + selectedExpiry);
+        //     return false; // Prevent form submission
+        // }
+        
+        function sendExpiry() {
+            const form = document.getElementById('expiry-form');
+            const selectedExpiry = form.elements['expiry'].value;
+            const openFactor = form.elements['open-factor'].value;
+
+            // Send the selected expiry and open factor to the WebSocket server
+            socket.send("SET_EXPIRY:" + selectedExpiry + ":" + openFactor);
+
+            return false; // Prevent form submission
+        }
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Received data: ', data);
+            // Update the table or display the received data
+        };
+
+        connect();
+
+    </script>
+</body>
+</html>
