@@ -8,8 +8,6 @@ from flask import Flask, render_template, request
 import requests
 import re
 
-#Hey
-#New branch work
 
 from config import (
     SYMBOL_EQUITY_QUOTE_URL,
@@ -25,7 +23,7 @@ def is_float(string: str):
     pattern = r"^-?\d+(\.\d+)?$"
     return re.match(pattern, string) is not None
 
-#! OG Code
+#! Original Code
 # def subscribe_equity_symbols(symbols: List = SYMBOLS):
 
 #     for symbol in symbols:
@@ -65,7 +63,7 @@ def subscribe_equity_symbols(symbols: List = SYMBOLS):
             print(f"Subscription failed for {symbol}EQ after 5 attempts, moving to next symbol.")
 
 
-# OG Code
+#! Original Code
 # def subscribe_futures_symbols(symbols: List = SYMBOLS):
 
 #     near_expiry = datetime.now().strftime('%y%b').upper()
@@ -116,8 +114,6 @@ def subscribe_futures_symbols(symbols: List = SYMBOLS):
 
             if retry_dict[symbol] >= 5:
                 print(f"Subscription failed for {symbol}{expiry}FUT after 5 attempts, moving to next symbol.")
-
-
 
 
 def fetch_equity_data(symbol: str):
