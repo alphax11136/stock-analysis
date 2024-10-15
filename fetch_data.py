@@ -41,7 +41,9 @@ def is_float(string: str):
 
 
 # this is the chnanged code to resolve the recurssion error
+# Upadted symbol list to resolve the error of open facytor if stock is not subscribed
 def subscribe_equity_symbols(symbols: List = SYMBOLS):
+    list_inst_not_subscribed = []
     retry_dict = {symbol: 0 for symbol in symbols}  # Initialize retry count for each symbol
 
     for symbol in symbols:
@@ -61,6 +63,9 @@ def subscribe_equity_symbols(symbols: List = SYMBOLS):
 
         if retry_dict[symbol] >= 5:
             print(f"Subscription failed for {symbol}EQ after 5 attempts, moving to next symbol.")
+            list_inst_not_subscribed.append(symbol)
+    return list_inst_not_subscribed 
+
 
 
 #! Original Code
@@ -117,29 +122,23 @@ def subscribe_futures_symbols(symbols: List = SYMBOLS):
 
 
 def fetch_equity_data(symbol: str):
+    # print(f'symbol : {symbol}')
     response = requests.get(url=SYMBOL_EQUITY_QUOTE_URL.format(stock_symbol=symbol))
     if not response.status_code == 200:
         raise Exception("Error in request")
 
+    # print(f'response : {response}')
     content = {}
     for data in response.content.decode("utf-8").split("\r\n"):
         if not data:
             continue
+        # print(f'data : {data}')
         key, value = data.split("=")
         content[key] = float(value) if is_float(value) else value
     return content
 
 
 def fetch_futures_data(symbol: str,expiry):
-
-    # expiry = datetime.now().strftime('%y%b').upper()  # Nearest expiry
-
-    # if expiry == 'near':
-    #     expiry = datetime.now().strftime('%y%b').upper()
-    # elif expiry == 'mid':
-    #     expiry = (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper()
-    # elif expiry == 'far':
-    #     expiry = (datetime.now() + relativedelta(months=+2)).strftime('%y%b').upper()
 
     if expiry == 'near':
         expiry = (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper()
@@ -241,7 +240,9 @@ def fetch_symbol_data(symbol: str, dict_symbol_lotsize, expiry, no_of_days_left,
 
 #######################! Main !#######################
 
-subscribe_equity_symbols()
+list_inst_not_subscribed = subscribe_equity_symbols()
+# Upadted symbol list to resolve the error of open facytor if stock is not subscribed
+SYMBOLS = [instrument for instrument in SYMBOLS if instrument not in list_inst_not_subscribed]
 subscribe_futures_symbols()
 
 tables.update_index_html()
