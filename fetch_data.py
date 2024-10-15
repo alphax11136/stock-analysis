@@ -23,48 +23,99 @@ def is_float(string: str):
     pattern = r"^-?\d+(\.\d+)?$"
     return re.match(pattern, string) is not None
 
+#! OG Code
+# def subscribe_equity_symbols(symbols: List = SYMBOLS):
 
+#     for symbol in symbols:
+#         response = requests.get(
+#             url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}EQ")
+#         )
+#         if (
+#             not response.status_code == 200
+#             or f"Subscription requested for dispname : {symbol}EQ"
+#             != response.content.decode("utf-8")
+#         ):
+#             subscribe_equity_symbols(symbols=[symbol])
+#         else:
+#             print(f"{symbol} SUBSCRIBED SUCCESSFULLY")
+
+
+# this is the chnanged code to resolve the recurssion error
 def subscribe_equity_symbols(symbols: List = SYMBOLS):
+    retry_dict = {symbol: 0 for symbol in symbols}  # Initialize retry count for each symbol
 
     for symbol in symbols:
-        response = requests.get(
-            url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}EQ")
-        )
-        if (
-            not response.status_code == 200
-            or f"Subscription requested for dispname : {symbol}EQ"
-            != response.content.decode("utf-8")
-        ):
-            subscribe_equity_symbols(symbols=[symbol])
-        else:
-            print(f"{symbol} SUBSCRIBED SUCCESSFULLY")
+        while retry_dict[symbol] < 5:  # Retry up to 5 times
+            response = requests.get(
+                url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}EQ")
+            )
+            if (
+                response.status_code == 200
+                and f"Subscription requested for dispname : {symbol}EQ" == response.content.decode("utf-8")
+            ):
+                print(f"{symbol} SUBSCRIBED SUCCESSFULLY")
+                break  # Move to the next symbol if subscription is successful
+            else:
+                retry_dict[symbol] += 1
+                print(f"Retry {retry_dict[symbol]} for {symbol}EQ")
+
+        if retry_dict[symbol] >= 5:
+            print(f"Subscription failed for {symbol}EQ after 5 attempts, moving to next symbol.")
 
 
+# OG Code
+# def subscribe_futures_symbols(symbols: List = SYMBOLS):
+
+#     near_expiry = datetime.now().strftime('%y%b').upper()
+#     mid_expiry = (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper()
+#     far_expiry = (datetime.now() + relativedelta(months=+2)).strftime('%y%b').upper()
+    
+#     for expiry in [near_expiry,mid_expiry,far_expiry]:
+#         for symbol in symbols:
+#             print(f'stock_symbol : {symbol}{expiry}FUT')
+#             response = requests.get(
+#                 url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}{expiry}FUT")
+#             )
+#             if (
+#                 not response.status_code == 200
+#                 or f"Subscription requested for dispname : {symbol}{expiry}FUT"
+#                 != response.content.decode("utf-8")
+#             ):
+#                 print(f'error in symbol : {symbol}')
+#                 subscribe_futures_symbols(symbols=[symbol])
+#             else:
+#                 print(f"{symbol}{expiry}FUT SUBSCRIBED SUCCESSFULLY")
+
+
+# this is the chnanged code to resolve the recurssion error
 def subscribe_futures_symbols(symbols: List = SYMBOLS):
+    retry_dict = {symbol: 0 for symbol in symbols}  # Initialize retry count for each symbol
 
     near_expiry = datetime.now().strftime('%y%b').upper()
     mid_expiry = (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper()
     far_expiry = (datetime.now() + relativedelta(months=+2)).strftime('%y%b').upper()
 
-    # near_expiry = (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper()
-    # mid_expiry = (datetime.now() + relativedelta(months=+2)).strftime('%y%b').upper()
-    # far_expiry = (datetime.now() + relativedelta(months=+3)).strftime('%y%b').upper()
-    
-    for expiry in [near_expiry,mid_expiry,far_expiry]:
+    for expiry in [near_expiry, mid_expiry, far_expiry]:
         for symbol in symbols:
-            print(f'stock_symbol : {symbol}{expiry}FUT')
-            response = requests.get(
-                url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}{expiry}FUT")
-            )
-            if (
-                not response.status_code == 200
-                or f"Subscription requested for dispname : {symbol}{expiry}FUT"
-                != response.content.decode("utf-8")
-            ):
-                print(f'error in symbol : {symbol}')
-                subscribe_futures_symbols(symbols=[symbol])
-            else:
-                print(f"{symbol}{expiry}FUT SUBSCRIBED SUCCESSFULLY")
+            while retry_dict[symbol] < 5:  # Retry up to 5 times
+                print(f'Subscribing: stock_symbol : {symbol}{expiry}FUT')
+                response = requests.get(
+                    url=SYMBOL_SUBSCRIPTION_URL.format(stock_symbol=f"{symbol}{expiry}FUT")
+                )
+                if (
+                    response.status_code == 200
+                    and f"Subscription requested for dispname : {symbol}{expiry}FUT" == response.content.decode("utf-8")
+                ):
+                    print(f"{symbol}{expiry}FUT SUBSCRIBED SUCCESSFULLY")
+                    break  # Move to the next symbol if subscription is successful
+                else:
+                    retry_dict[symbol] += 1
+                    print(f"Retry {retry_dict[symbol]} for {symbol}{expiry}FUT")
+
+            if retry_dict[symbol] >= 5:
+                print(f"Subscription failed for {symbol}{expiry}FUT after 5 attempts, moving to next symbol.")
+
+
 
 
 def fetch_equity_data(symbol: str):
@@ -244,6 +295,20 @@ def fetch_all_stocks_data(expiry, no_of_days_left, open_factor):
 #         print(f'stocks_data : {stocks_data}')
         
 #         return render_template('index.html', stocks_data=stocks_data, expiry=expiry)
+
+config_data = {
+    "api_urls": {
+        "equity_quote": SYMBOL_EQUITY_QUOTE_URL,
+        "futures_quote": SYMBOL_FUTURES_QUOTE_URL,
+        "subscription": SYMBOL_SUBSCRIPTION_URL
+    },
+    "symbols": SYMBOLS,
+    "expiry_details": {
+        "near": datetime.now().strftime('%y%b').upper(),
+        "mid": (datetime.now() + relativedelta(months=+1)).strftime('%y%b').upper(),
+        "far": (datetime.now() + relativedelta(months=+2)).strftime('%y%b').upper()
+    }
+}
 
 if __name__ == '__main__':
     app.run(debug=True)
