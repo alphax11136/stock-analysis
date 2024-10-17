@@ -4,7 +4,7 @@ import pandas as pd
 import json
 import tables
 from dateutil.relativedelta import relativedelta
-from flask import Flask, render_template, request
+# from flask import Flask, render_template, request
 import requests
 import re
 
@@ -16,7 +16,7 @@ from config import (
     SYMBOLS,
 )
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
 
 def is_float(string: str):
@@ -309,5 +309,5 @@ config_data = {
     }
 }
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
