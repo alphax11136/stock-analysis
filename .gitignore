@@ -5,3 +5,4 @@ env_stock_analysis/
 *lot_size.ipynb
 *rough.ipynb
 *Commands.txt
+__pycache__/
