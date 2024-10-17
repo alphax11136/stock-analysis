@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: websocket-app
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python websocket.py"
+  - type: web
+    name: http-server
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python server.py"
