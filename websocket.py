@@ -5,6 +5,7 @@ from fetch_data import fetch_all_stocks_data
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import tables
+from config import get_server_url  # Import the function that fetches server details
 
 today, near_expiry, mid_expiry, far_expiry = tables.expiries()
 

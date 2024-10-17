@@ -175,10 +175,26 @@ SYMBOLS = [
     'ZYDUSLIFE'
 ]
 
-SYMBOL_SUBSCRIPTION_URL = "http://127.0.0.1:8181/subscribe/dispname={stock_symbol}"
+# SYMBOL_SUBSCRIPTION_URL = "http://127.0.0.1:8181/subscribe/dispname={stock_symbol}"
 
-SYMBOL_EQUITY_QUOTE_URL = "http://127.0.0.1:8181/getquote/dispname={stock_symbol}EQ"
+# SYMBOL_EQUITY_QUOTE_URL = "http://127.0.0.1:8181/getquote/dispname={stock_symbol}EQ"
 
-SYMBOL_FUTURES_QUOTE_URL = "http://127.0.0.1:8181/getquote/dispname={stock_symbol}{expiry}FUT"
+# SYMBOL_FUTURES_QUOTE_URL = "http://127.0.0.1:8181/getquote/dispname={stock_symbol}{expiry}FUT"
 
-SYMBOL_INFO_URL = "http://127.0.0.1:8181/scripinfo/dispname={stock_symbol}EQ"
+# SYMBOL_INFO_URL = "http://127.0.0.1:8181/scripinfo/dispname={stock_symbol}EQ"
+
+
+
+# Function to get server details from the user
+def get_server_url():
+    host = input("Enter your server host IP (default: 127.0.0.1): ") or "127.0.0.1"
+    port = input("Enter your server port (default: 8181): ") or "8181"
+    return f"http://{host}:{port}"
+
+# Get the server URL dynamically from user input
+SERVER_URL = get_server_url()
+
+SYMBOL_SUBSCRIPTION_URL = f"{SERVER_URL}/subscribe/dispname={{stock_symbol}}"
+SYMBOL_EQUITY_QUOTE_URL = f"{SERVER_URL}/getquote/dispname={{stock_symbol}}EQ"
+SYMBOL_FUTURES_QUOTE_URL = f"{SERVER_URL}/getquote/dispname={{stock_symbol}}{{expiry}}FUT"
+SYMBOL_INFO_URL = f"{SERVER_URL}/scripinfo/dispname={{stock_symbol}}EQ"
